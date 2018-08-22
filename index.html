@@ -1,0 +1,59 @@
+<input type="text" id="session"><br/>
+<textarea id="value"></textarea>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    (()=>{
+        var socket = io();
+        var session_element = document.getElementById("session");
+        var textArea = document.getElementById("value");
+
+        //Update the whole state when requested
+        socket.on('refresh', function(msg){
+            console.log("Refreshing");
+            textArea.value = msg;
+        });
+
+        //Serve the whole state when requested
+        socket.on('request', function(sid){
+            console.log("Requested");
+            socket.emit('refresh', {sid: sid, val: textArea.value});
+        });
+
+        //Update atomic changes
+        socket.on('change', function(msg){
+            console.log(msg);
+            textArea.value = textArea.value.substr(0, msg.position) + msg.char + textArea.value.substr(msg.position);
+        });
+
+        //Change session
+        session_element.addEventListener("change", function(){
+            //New session ID
+            socket.emit('session-change', session_element.value);
+
+        });
+
+
+        //Update on change
+        textArea.addEventListener('keydown', function(e){
+            //Detect if it is a printable character
+            var valid =
+                (e.keyCode > 47 && e.keyCode < 58)   || // number keys
+                e.keyCode == 32 || e.keyCode == 13   || // spacebar & return key(s) (if you want to allow carriage returns)
+                (e.keyCode > 64 && e.keyCode < 91)   || // letter keys
+                (e.keyCode > 95 && e.keyCode < 112)  || // numpad keys
+                (e.keyCode > 185 && e.keyCode < 193) || // ;=,-./` (in order)
+                (e.keyCode > 218 && e.keyCode < 223);   // [\]' (in order)
+
+            if(valid) {
+                //Push event to the server 
+                socket.emit('change', {char: e.key, position: e.target.selectionStart });
+            }
+        });
+
+
+        //Make sure to join the current session 
+        socket.emit('session-change', session_element.value);
+    })();
+
+
+</script>
